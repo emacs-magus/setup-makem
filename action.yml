@@ -1,0 +1,61 @@
+inputs:
+  emacs_version:
+    required: true
+  os:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Install Emacs"
+      uses: purcell/setup-emacs@master
+      with:
+        version: ${{ inputs.emacs_version }}
+    - name: Checkout submodules
+      shell: bash
+      run: |
+        auth_header=$(git config --local \
+                          --get http.https://github.com/.extraheader)
+        git submodule sync --recursive
+        git -c "http.extraheader=$auth_header" \
+            -c protocol.version=2 submodule update --init --force \
+            --recursive --depth=1
+    - name: Install ispell for linting on Ubuntu
+      if: contains(inputs.os, 'ubuntu')
+      shell: bash
+      run: sudo apt-get install --yes aspell
+    - name: Install aspell for linting on OSX
+      if: contains(inputs.os, 'macos')
+      shell: bash
+      run: brew install aspell
+    - name: Install dependencies through brew
+      if: contains(matrix.os, 'macos')
+      # not all of these are actually used, but this takes care of all commands with-gnu-utils supports
+      shell: bash
+      run: |
+        brew install bash coreutils gawk findutils grep gnu-sed gnu-tar \
+             gnu-getopt
+    - name: Optionally install dependencies and linters
+      # don't fail fast
+      shell: bash --noprofile --norc {0}
+      run: |
+        make --question deps 2> /dev/null
+        deps=$?
+        make --question install-deps 2> /dev/null
+        install_deps=$?
+        make --question dependencies 2> /dev/null
+        dependencies=$?
+        make --question install-dependencies 2> /dev/null
+        install_dependencies=$?
+
+        if (( deps <= 1 )); then
+            make deps
+        elif (( install_deps <= 1 )); then
+            make install-deps
+        elif (( dependencies <= 1 )); then
+            make dependencies
+        elif (( install_dependencies <= 1 )); then
+            make install-dependencies
+        else
+            echo "No make rule found to install dependencies.  Skipping..."
+        fi

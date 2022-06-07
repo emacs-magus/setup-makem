@@ -1,0 +1,45 @@
+* About
+This provides a github action for seting up [[https://github.com/alphapapa/makem.sh][makem.sh]] for testing and linting an Emacs package.  It is meant to be used with a repo that has makem.sh and optionally [[https://github.com/noctuid/with-gnu-utils][with-gnu-utils]] as submodules (though it will probably work if makem has just been copied into the repo).  =with-gnu-utils= is required to use makem.sh on OSX.
+
+The action does the following:
+- Install Emacs using [[https://github.com/purcell/setup-emacs][purcell/setup-emacs]]
+- Checkout/initialize any submodules
+- Install aspell on Ubuntu or OSX (required for checkdoc spell checking)
+- Install dependencies required for with-gnu-utils on OSX (not needed on Ubuntu)
+- Optionally run a make command to install dependencies and initialize the sandbox
+
+* Minimum Setup
+The two required inputs are =emacs_version= and =os=.
+
+For the last step, the action will try to run =make deps=, =make install-deps=, =make dependencies=,  or =make install-dependencies= if any of those make targets exist.  This is simpler than trying to guess (or requiring extra configuration to determine) where makem is, whether with-gnu-utils exists and should be used, whether a sandbox directory should be used, etc.  Since you will likely already have a make rule to install dependencies, it will just guess that instead.  If you don't, you will have to do any other setup in your workflow yaml file.
+
+Here is a minimal example usage in =.github/workflows/lint.yml=:
+#+begin_src yaml
+name: Lint
+
+on:
+  pull_request:
+    paths:
+      - '**.el'
+      - '**lint.yml'
+  push:
+    paths:
+      - '**.el'
+      - '**lint.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Emacs and everything needed for makem"
+        uses: emacs-magus/setup-makem@master
+        with:
+          emacs_version: 28.1
+          os: ubuntu-latest
+      - name: Lint
+        run: make lint
+#+end_src
+
+* More Complex Example
+See [[https://github.com/emacs-magus/once][once.el]].
